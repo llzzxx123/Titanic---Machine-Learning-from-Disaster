@@ -20,21 +20,17 @@ test = pd.read_csv(Test)
 # 安全特征工程函数
 def feature_engineering(df):
     _df = df.copy()
-    # Title处理
     _df['Title'] = _df['Name'].str.extract(' ([A-Za-z]+)\.', expand=False)
     _df['Title'] = _df['Title'].replace(['Lady','Countess','Capt','Col','Don','Dr',
                                        'Major','Rev','Sir','Jonkheer','Dona'], 'Rare')
     _df['Title'] = _df['Title'].replace({'Mlle':'Miss', 'Ms':'Miss', 'Mme':'Mrs'})
     
-    # 家庭特征
     _df['FamilySize'] = _df['SibSp'] + _df['Parch'] + 1
     _df['IsAlone'] = (_df['FamilySize'] == 1).astype(int)
     
-    # 分箱处理
     _df['Fare'] = pd.cut(_df['Fare'], bins=[-1, 7.91, 14.45, 31.0, 512], labels=[0,1,2,3]).astype(float)
     _df['Age'] = pd.cut(_df['Age'], bins=[0, 12, 18, 35, 60, 100], labels=[0,1,2,3,4]).astype(float)
     
-    # Cabin特征
     _df['HasCabin'] = _df['Cabin'].notna().astype(int)
     
     return _df.drop(['Name','Ticket','Cabin','PassengerId'], axis=1, errors='ignore')
@@ -58,14 +54,12 @@ preprocessor = ColumnTransformer(
 
 # 模型训练流程
 def train_model(X, y):
-    # 定义基准模型
     models = {
         'RandomForest': RandomForestClassifier(n_estimators=200, random_state=42),
         'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss'),
         'LightGBM': LGBMClassifier()
     }
     
-    # 交叉验证
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     results = {}
     
@@ -80,14 +74,12 @@ def train_model(X, y):
     
     return results
 
-# 执行训练
-print("--- 模型验证阶段 ---")
+#训练
 X = feature_engineering(train)
 y = X.pop('Survived')
 results = train_model(X, y)
 
-# 超参数优化（Optuna）
-print("\n--- 超参数优化 ---")
+#超参数优化（Optuna）
 def objective(trial):
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 500),
@@ -107,8 +99,7 @@ def objective(trial):
 study = optuna.create_study(direction='maximize')
 study.optimize(objective, n_trials=50)
 
-# 最佳模型训练
-print("\n--- 最终模型训练 ---")
+#最终模型
 best_params = study.best_params
 final_model = Pipeline(steps=[
     ('preprocessor', preprocessor),
@@ -123,4 +114,5 @@ submission = pd.DataFrame({
     'Survived': final_model.predict(test_processed)
 })
 submission.to_csv(os.path.join('c:\\Users\\lenovo\\Desktop','submission.csv'))
+
 print("提交文件已生成")
